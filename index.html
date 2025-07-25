@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VGH Employee Cost Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000000;
+            min-height: 100vh;
+            color: white;
+            padding: 20px;
+        }
+
+        .dashboard {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: #000000;
+            border-radius: 25px;
+            padding: 30px;
+            box-shadow: 0 25px 50px rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 3em;
+            font-weight: 300;
+            margin-bottom: 40px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            color: white;
+        }
+
+        .period-selector {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            gap: 15px;
+        }
+
+        .period-btn {
+            padding: 12px 24px;
+            background: #404040;
+            border: 2px solid #666666;
+            border-radius: 50px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .period-btn.active {
+            background: #666666;
+            border-color: #888888;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 255, 255, 0.2);
+        }
+
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: #404040;
+            border: 1px solid #666666;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .stat-card:hover::before {
+            left: 100%;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .stat-value {
+            font-size: 2.8em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+
+        .stat-label {
+            font-size: 1.1em;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        .stat-change {
+            font-size: 0.9em;
+            margin-top: 8px;
+            padding: 5px 10px;
+            border-radius: 15px;
+            display: inline-block;
+        }
+
+        .stat-change.positive {
+            background: rgba(0, 184, 148, 0.3);
+            color: #00b894;
+        }
+
+        .stat-change.negative {
+            background: rgba(231, 76, 60, 0.3);
+            color: #e74c3c;
+        }
+
+        .charts-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .chart-container {
+            background: #404040;
+            border-radius: 20px;
+            padding: 25px;
+            border: 1px solid #666666;
+            height: 450px;
+        }
+
+        .chart-title {
+            font-size: 1.4em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #fff;
+        }
+
+        .full-width-chart {
+            grid-column: 1 / -1;
+            height: 400px;
+        }
+
+        .employee-breakdown {
+            background: #404040;
+            border-radius: 20px;
+            padding: 25px;
+            border: 1px solid #666666;
+            margin-bottom: 30px;
+        }
+
+        .breakdown-title {
+            font-size: 1.6em;
+            font-weight: 600;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .employee-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #333333;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .employee-table th {
+            background: #222222;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #666666;
+        }
+
+        .employee-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #555555;
+        }
+
+        .employee-table tr:hover {
+            background: #555555;
+        }
+
+        .cost-cell {
+            font-weight: bold;
+            color: #ffeaa7;
+        }
+        
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            transition: background-color 0.3s ease;
+        }
+
+        .sortable:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+
+
+        .overtime-cell {
+            color: #ff7675;
+            font-weight: 500;
+        }
+
+        @media (max-width: 1200px) {
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .stats-overview {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <h1>Production Employee Cost Dashboard</h1>
+        
+        <div class="period-selector">
+            <button class="period-btn active" onclick="switchPeriod('weekly')">Weekly View</button>
+            <button class="period-btn" onclick="switchPeriod('monthly')">Monthly View</button>
+        </div>
+
+        <div class="stats-overview">
+            <div class="stat-card">
+                <div class="stat-value" id="totalCost">$41,249</div>
+                <div class="stat-label">Total Cost (Weekly)</div>
+                <div class="stat-change positive" id="costChange">+5.2% vs last period</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-value" id="avgCost">$2,946</div>
+                <div class="stat-label">Average Cost per Employee</div>
+                <div class="stat-change negative" id="avgChange">-2.1% vs last period</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-value" id="overtimeCost">$8,156</div>
+                <div class="stat-label">Overtime & Allowances</div>
+                <div class="stat-change positive" id="overtimeChange">+12.3% vs last period</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-value" id="employeeCount">14</div>
+                <div class="stat-label">Active Employees</div>
+                <div class="stat-change positive" id="countChange">Same as last period</div>
+            </div>
+        </div>
+
+        <div class="charts-section">
+            <div class="chart-container">
+                <div class="chart-title">Cost Distribution by Type</div>
+                <canvas id="costDistributionChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Role Cost Breakdown</div>
+                <canvas id="roleBreakdownChart"></canvas>
+            </div>
+            
+            <div class="chart-container full-width-chart">
+                <div class="chart-title">Weekly Cost Trends</div>
+                <canvas id="trendsChart"></canvas>
+            </div>
+        </div>
+
+        <div class="employee-breakdown">
+            <div class="breakdown-title">Employee Cost Breakdown</div>
+            <table class="employee-table">
+                <thead>
+                    <tr>
+                        <th>Employee Name</th>
+                        <th class="sortable" onclick="sortTable('totalHours')">Total Hours</th>
+                        <th>Ordinary Hours</th>
+                        <th>Overtime Hours</th>
+                        <th>Night Shift</th>
+                        <th>Saturday</th>
+                        <th>Sunday</th>
+                        <th>Public Holiday</th>
+                        <th class="sortable" onclick="sortTable('totalPay')">Total Pay (AUD)</th>
+                    </tr>
+                </thead>
+                <tbody id="employeeTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Employee data
+        const employeeData = [
+            { name: 'Aaryan Akhil', totalHours: 135.82, ordinaryHours: 78.53, overtime: 0, nightShift: 10.98, saturdayShift: 0, sundayShift: 61.77, publicHoliday: 15.92, totalPay: 2792.76 },
+            { name: 'Ali Smith', totalHours: 149.3, ordinaryHours: 69.43, overtime: 0, nightShift: 16.93, saturdayShift: 6.15, sundayShift: 18.63, publicHoliday: 94.29, totalPay: 2979.37 },
+            { name: 'Casey Brown', totalHours: 179, ordinaryHours: 47.25, overtime: 27, nightShift: 12.9, saturdayShift: 10, sundayShift: 4.5, publicHoliday: 4.9, totalPay: 4177.33 },
+            { name: 'Dale Keaveny', totalHours: 157, ordinaryHours: 58.7, overtime: 5, nightShift: 16.45, saturdayShift: 49.15, sundayShift: 23.35, publicHoliday: 0, totalPay: 3313.56 },
+            { name: 'Jamal Choucair', totalHours: 162, ordinaryHours: 81.6, overtime: 10, nightShift: 2.45, saturdayShift: 59.6, sundayShift: 8.45, publicHoliday: 106, totalPay: 2674.84 },
+            { name: 'Joao De Abreu', totalHours: 171, ordinaryHours: 83.4, overtime: 19, nightShift: 12.45, saturdayShift: 58.25, sundayShift: 6.45, publicHoliday: 110, totalPay: 3059.26 },
+            { name: 'Karamveer Singh', totalHours: 162, ordinaryHours: 73.4, overtime: 10, nightShift: 14.9, saturdayShift: 65.8, sundayShift: 14.9, publicHoliday: 16.9, totalPay: 3277.94 },
+            { name: 'Katelyn Boulton', totalHours: 162, ordinaryHours: 74.05, overtime: 10, nightShift: 23.35, saturdayShift: 46.25, sundayShift: 8.45, publicHoliday: 98, totalPay: 2860.62 },
+            { name: 'Kevin Duong', totalHours: 180, ordinaryHours: 79.85, overtime: 28, nightShift: 19.35, saturdayShift: 48, sundayShift: 21.8, publicHoliday: 98, totalPay: 3872 },
+            { name: 'Mahli Fraser', totalHours: 169.9, ordinaryHours: 56.52, overtime: 17.9, nightShift: 22.86, saturdayShift: 65.8, sundayShift: 14.9, publicHoliday: 19.0, totalPay: 3218.85 },
+            { name: 'Reza Kazemi', totalHours: 180, ordinaryHours: 58.76, overtime: 28, nightShift: 6.45, saturdayShift: 86.5, sundayShift: 17.35, publicHoliday: 128, totalPay: 3840.72 },
+            { name: 'Ryan Quinn', totalHours: 171, ordinaryHours: 46.25, overtime: 19, nightShift: 14.45, saturdayShift: 89.4, sundayShift: 10.45, publicHoliday: 126, totalPay: 3669.19 },
+            { name: 'Sophie Grantford', totalHours: 0, ordinaryHours: 0, overtime: 0, nightShift: 0, saturdayShift: 0, sundayShift: 0, publicHoliday: 0, totalPay: 0 },
+            { name: 'Tegan New', totalHours: 153, ordinaryHours: 56.95, overtime: 1, nightShift: 4.9, saturdayShift: 77.8, sundayShift: 4, publicHoliday: 0, totalPay: 2944.41 }
+        ];
+
+        // Filter out employees with 0 hours
+        const activeEmployees = employeeData.filter(emp => emp.totalHours > 0);
+
+        let currentPeriod = 'weekly';
+
+        // Calculate totals
+        const totalCost = activeEmployees.reduce((sum, emp) => sum + emp.totalPay, 0);
+        const totalOvertimeHours = activeEmployees.reduce((sum, emp) => sum + emp.overtime, 0);
+        const totalNightShiftHours = activeEmployees.reduce((sum, emp) => sum + emp.nightShift, 0);
+        const totalSaturdayHours = activeEmployees.reduce((sum, emp) => sum + emp.saturdayShift, 0);
+        const totalSundayHours = activeEmployees.reduce((sum, emp) => sum + emp.sundayShift, 0);
+        const totalPublicHolidayHours = activeEmployees.reduce((sum, emp) => sum + emp.publicHoliday, 0);
+
+        // Calculate allowances and overtime cost
+        const avgHourlyRate = totalCost / activeEmployees.reduce((sum, emp) => sum + emp.totalHours, 0);
+        const overtimeCost = (totalOvertimeHours * avgHourlyRate * 0.5) + 
+                           (totalNightShiftHours * avgHourlyRate * 0.5) + 
+                           (totalSaturdayHours * avgHourlyRate * 0.5) + 
+                           (totalSundayHours * avgHourlyRate) + 
+                           (totalPublicHolidayHours * avgHourlyRate);
+
+        function updateStatCards() {
+            const multiplier = currentPeriod === 'monthly' ? 4.33 : 1;
+            
+            document.getElementById('totalCost').textContent = `$${(totalCost * multiplier).toLocaleString()}`;
+            document.getElementById('avgCost').textContent = `$${Math.round(totalCost * multiplier / activeEmployees.length).toLocaleString()}`;
+            document.getElementById('overtimeCost').textContent = `$${Math.round(overtimeCost * multiplier).toLocaleString()}`;
+            document.getElementById('employeeCount').textContent = activeEmployees.length;
+            
+            // Update period labels
+            const period = currentPeriod === 'weekly' ? 'Weekly' : 'Monthly';
+            document.querySelector('.stat-card .stat-label').textContent = `Total Cost (${period})`;
+        }
+
+        function switchPeriod(period) {
+            currentPeriod = period;
+            
+            // Update button states
+            document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            updateStatCards();
+            updateCharts();
+        }
+
+        // Cost Distribution Chart
+        const costDistCtx = document.getElementById('costDistributionChart').getContext('2d');
+        const costDistChart = new Chart(costDistCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Ordinary Hours', 'Overtime', 'Night Shift', 'Saturday', 'Sunday', 'Public Holiday'],
+                datasets: [{
+                    data: [
+                        totalCost - overtimeCost,
+                        totalOvertimeHours * avgHourlyRate * 1.5,
+                        totalNightShiftHours * avgHourlyRate * 1.5,
+                        totalSaturdayHours * avgHourlyRate * 1.5,
+                        totalSundayHours * avgHourlyRate * 2,
+                        totalPublicHolidayHours * avgHourlyRate * 2
+                    ],
+                    backgroundColor: ['#74b9ff', '#fd79a8', '#fdcb6e', '#e17055', '#a29bfe', '#6c5ce7'],
+                    borderWidth: 3,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#fff',
+                            padding: 20
+                        }
+                    }
+                }
+            }
+        });
+
+        // Role Breakdown Chart (all Studio Technicians)
+        const roleCtx = document.getElementById('roleBreakdownChart').getContext('2d');
+        const roleChart = new Chart(roleCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Studio Technician'],
+                datasets: [{
+                    label: 'Total Cost',
+                    data: [totalCost],
+                    backgroundColor: '#00cec9',
+                    borderColor: '#fff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#fff'
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#fff',
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.2)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#fff'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.2)'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Trends Chart (simulated weekly data)
+        const trendsCtx = document.getElementById('trendsChart').getContext('2d');
+        const trendsChart = new Chart(trendsCtx, {
+            type: 'line',
+            data: {
+                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Current Week'],
+                datasets: [{
+                    label: 'Total Cost',
+                    data: [38500, 39200, 40100, 39800, totalCost],
+                    borderColor: '#fd79a8',
+                    backgroundColor: 'rgba(253, 121, 168, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }, {
+                    label: 'Allowances & Overtime',
+                    data: [4200, 4800, 5500, 4900, overtimeCost],
+                    borderColor: '#fdcb6e',
+                    backgroundColor: 'rgba(253, 203, 110, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#fff'
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#fff',
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.2)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#fff'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.2)'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Populate employee table
+        function populateEmployeeTable(skipSort = false) {
+            const tbody = document.getElementById('employeeTableBody');
+            tbody.innerHTML = '';
+            
+            // Only sort by default if not already sorted by user
+            const employeesToShow = skipSort ? activeEmployees : [...activeEmployees].sort((a, b) => b.totalPay - a.totalPay);
+            
+            employeesToShow.forEach(emp => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${emp.name}</td>
+                    <td>${emp.totalHours.toFixed(1)}</td>
+                    <td>${emp.ordinaryHours.toFixed(1)}</td>
+                    <td class="overtime-cell">${emp.overtime.toFixed(1)}</td>
+                    <td>${emp.nightShift.toFixed(1)}</td>
+                    <td>${emp.saturdayShift.toFixed(1)}</td>
+                    <td>${emp.sundayShift.toFixed(1)}</td>
+                    <td>${emp.publicHoliday.toFixed(1)}</td>
+                    <td class="cost-cell">${emp.totalPay.toLocaleString()}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateCharts() {
+            const multiplier = currentPeriod === 'monthly' ? 4.33 : 1;
+            
+            // Update trends chart labels
+            if (currentPeriod === 'monthly') {
+                trendsChart.data.labels = ['Jan', 'Feb', 'Mar', 'Apr', 'Current Month'];
+                trendsChart.data.datasets[0].data = [165000, 168000, 172000, 170000, totalCost * multiplier];
+                trendsChart.data.datasets[1].data = [18000, 20500, 23500, 21000, overtimeCost * multiplier];
+            } else {
+                trendsChart.data.labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Current Week'];
+                trendsChart.data.datasets[0].data = [38500, 39200, 40100, 39800, totalCost];
+                trendsChart.data.datasets[1].data = [4200, 4800, 5500, 4900, overtimeCost];
+            }
+            
+            trendsChart.update();
+        }
+
+        // Sorting functionality
+        let sortDirection = {};
+        
+        function sortTable(column) {
+            const currentDirection = sortDirection[column] || 'desc';
+            const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+            sortDirection[column] = newDirection;
+            
+            // Remove all sort indicators
+            document.querySelectorAll('.sortable').forEach(th => {
+                th.classList.remove('asc', 'desc');
+            });
+            
+            // Add sort indicator to current column
+            event.target.classList.add(newDirection);
+            
+            // Sort the data
+            activeEmployees.sort((a, b) => {
+                let aVal, bVal;
+                
+                if (column === 'totalHours') {
+                    aVal = a.totalHours;
+                    bVal = b.totalHours;
+                } else if (column === 'totalPay') {
+                    aVal = a.totalPay;
+                    bVal = b.totalPay;
+                }
+                
+                if (newDirection === 'asc') {
+                    return aVal - bVal;
+                } else {
+                    return bVal - aVal;
+                }
+            });
+            
+            // Repopulate the table without re-sorting
+            populateEmployeeTable(true);
+        }
+
+        // Initialize
+        updateStatCards();
+        populateEmployeeTable();
+        
+        // Set initial sort indicator
+        document.querySelector(`th[onclick="sortTable('totalPay')"]`).classList.add('desc');
+    </script>
+</body>
+</html>
